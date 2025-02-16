@@ -1,0 +1,186 @@
+#include <gst/gst.h>
+#include <gst/rtsp-server/rtsp-server.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <locale.h>
+#include <glib.h>
+#include <sys/inotify.h>
+#include <errno.h>
+#include <signal.h>
+#include <pthread.h>
+#include <time.h>
+
+#define CONFIG_FILE "conf.txt"
+#define LOG_FILE "rtsp_server.log"
+
+GMutex config_mutex;
+char *current_video_source = NULL, *current_mount_point = NULL, *current_destination_port = NULL, *current_text = NULL;
+GstElement *text_overlay_element = NULL;
+GMainLoop *loop = NULL;
+
+void log_message(const char *message) {
+    FILE *log_file = fopen(LOG_FILE, "a");
+    if (log_file) {
+        time_t now = time(NULL);
+        char *timestamp = ctime(&now);
+        timestamp[strlen(timestamp) - 1] = '\0'; // Remove newline
+        fprintf(log_file, "[%s] %s\n", timestamp, message);
+        fclose(log_file);
+    }
+}
+
+void handle_sigterm(int sig) {
+    if (loop) {
+        g_main_loop_quit(loop);
+    }
+}
+
+int read_configuration(const char *file, char **video_source, char **mount_point, char **destination_port, char **text) {
+    FILE *fp = fopen(file, "r");
+    if (!fp) {
+        log_message("Failed to open configuration file.");
+        return -1;
+    }
+
+    if (fscanf(fp, "%ms\n%ms\n%ms\n%ms", video_source, mount_point, destination_port, text) != 4) {
+        log_message("Error reading configuration file.");
+        fclose(fp);
+        return -1;
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, gpointer user_data) {
+    GstElement *pipeline = gst_rtsp_media_get_element(media);
+    GstElement *text_overlay = gst_bin_get_by_name(GST_BIN(pipeline), "text_overlay");
+
+    if (text_overlay) {
+        g_object_set(text_overlay, "text", current_text, NULL);
+        text_overlay_element = text_overlay;
+    } else {
+        log_message("Failed to find text_overlay element in pipeline.");
+    }
+}
+
+gboolean config_file_changed(gpointer data) {
+    char *video_source = NULL, *mount_point = NULL, *destination_port = NULL, *text = NULL;
+
+    if (read_configuration(CONFIG_FILE, &video_source, &mount_point, &destination_port, &text) != 0) {
+        return G_SOURCE_CONTINUE;
+    }
+
+    g_mutex_lock(&config_mutex);
+
+    if (g_strcmp0(current_text, text) != 0 && text_overlay_element) {
+        g_object_set(text_overlay_element, "text", text, NULL);
+        g_free(current_text);
+        current_text = text;
+    } else {
+        g_free(text);
+    }
+
+    if (g_strcmp0(current_video_source, video_source) != 0) {
+        g_free(current_video_source);
+        current_video_source = video_source;
+        log_message("Video source updated.");
+    } else {
+        g_free(video_source);
+    }
+
+    g_mutex_unlock(&config_mutex);
+    return G_SOURCE_CONTINUE;
+}
+
+void *file_monitor_function(void *arg) {
+    int fd = inotify_init();
+    if (fd < 0) {
+        perror("inotify_init");
+        return NULL;
+    }
+
+    int wd = inotify_add_watch(fd, CONFIG_FILE, IN_MODIFY);
+    if (wd < 0) {
+        perror("inotify_add_watch");
+        close(fd);
+        return NULL;
+    }
+
+    char buffer[1024];
+    while (1) {
+        ssize_t length = read(fd, buffer, sizeof(buffer));
+        if (length <= 0) {
+            perror("read");
+            break;
+        }
+
+        for (int i = 0; i < length; i += sizeof(struct inotify_event)) {
+            struct inotify_event *event = (struct inotify_event *)&buffer[i];
+            if (event->mask & IN_MODIFY) {
+                log_message("Configuration file modified.");
+                config_file_changed(NULL);
+            }
+        }
+    }
+
+    close(fd);
+    return NULL;
+}
+
+void *rtsp_server_function(void *arg) {
+    GstRTSPServer *server = gst_rtsp_server_new();
+    g_object_set(server, "service", current_destination_port, NULL);
+
+    GstRTSPMountPoints *mounts = gst_rtsp_server_get_mount_points(server);
+    GstRTSPMediaFactory *factory = gst_rtsp_media_factory_new();
+
+    gchar *launch_string = g_strdup_printf(
+        "( uridecodebin uri=%s ! queue ! videoconvert ! textoverlay name=text_overlay text=\"%s\" font-desc=\"Sans 40px\" shaded-background=true halignment=center valignment=center ! x264enc tune=zerolatency ! rtph264pay name=pay0 pt=96 )",
+        current_video_source, current_text);
+    gst_rtsp_media_factory_set_launch(factory, launch_string);
+    g_free(launch_string);
+
+    gst_rtsp_media_factory_set_shared(factory, FALSE);
+    gst_rtsp_mount_points_add_factory(mounts, current_mount_point, factory);
+    g_object_unref(mounts);
+
+    gst_rtsp_server_attach(server, NULL);
+    log_message("RTSP server started.");
+    g_main_loop_run(loop);
+    return NULL;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        g_printerr("Usage: %s <config_file>\n", argv[0]);
+        return -1;
+    }
+
+    gst_init(&argc, &argv);
+    signal(SIGTERM, handle_sigterm);
+
+    if (read_configuration(argv[1], &current_video_source, &current_mount_point, &current_destination_port, &current_text) != 0) {
+        return -1;
+    }
+
+    loop = g_main_loop_new(NULL, FALSE);
+    pthread_t monitor_thread, rtsp_thread;
+
+    pthread_create(&monitor_thread, NULL, file_monitor_function, NULL);
+    pthread_create(&rtsp_thread, NULL, rtsp_server_function, NULL);
+
+    pthread_join(monitor_thread, NULL);
+    pthread_join(rtsp_thread, NULL);
+
+    g_main_loop_unref(loop);
+    g_free(current_video_source);
+    g_free(current_mount_point);
+    g_free(current_destination_port);
+    g_free(current_text);
+
+    return 0;
+}

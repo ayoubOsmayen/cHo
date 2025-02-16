@@ -1,0 +1,238 @@
+#include <gst/gst.h>
+#include <gst/rtsp-server/rtsp-server.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <locale.h>
+#include <glib.h>
+#include <sys/inotify.h>
+#include <errno.h>
+#include <limits.h>
+#include <signal.h>
+#include <sys/time.h>
+#include "clientTracking.h" // Placeholder for client tracking methods
+
+// Global variables
+GMutex config_mutex;
+char *current_video_source = NULL, *current_mount_point = NULL, *current_destination_port = NULL, *current_text = NULL;
+GstElement *text_overlay_element = NULL;
+GMainLoop *loop = NULL;
+
+// Signal handler for graceful termination
+static void handle_sigterm(int sig) {
+    if (loop) {
+        g_main_loop_quit(loop);
+    }
+}
+
+// Read configuration file
+int lire_configuration(const char *fichier, char **video_source, char **mount_point, char **destination_port, char **text) {
+    FILE *fp = fopen(fichier, "r");
+    if (fp == NULL) {
+        g_printerr("Impossible d'ouvrir le fichier de configuration.\n");
+        return -1;
+    }
+
+    if (fscanf(fp, "%ms\n%ms\n%ms\n%ms", video_source, mount_point, destination_port, text) != 4) {
+        g_printerr("Erreur de lecture du fichier de configuration.\n");
+        fclose(fp);
+        return -1;
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+// Update media configuration
+void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, gpointer user_data) {
+    GstElement *pipeline = gst_rtsp_media_get_element(media);
+    GstElement *text_overlay = gst_bin_get_by_name(GST_BIN(pipeline), "text_overlay");
+
+    if (text_overlay) {
+        g_object_set(text_overlay, "text", current_text, NULL);
+        text_overlay_element = text_overlay;
+    } else {
+        g_printerr("Failed to find text_overlay element in the pipeline.\n");
+    }
+}
+
+// Monitor configuration file for changes
+gboolean config_file_changed(gpointer data) {
+    GstRTSPServer *server = (GstRTSPServer *)data;
+    char *video_source = NULL, *mount_point = NULL, *destination_port = NULL, *text = NULL;
+
+    const char *config_file = (const char *)g_object_get_data(G_OBJECT(server), "config_file");
+
+    if (lire_configuration(config_file, &video_source, &mount_point, &destination_port, &text) != 0) {
+        return G_SOURCE_CONTINUE;
+    }
+
+    g_mutex_lock(&config_mutex);
+
+    if (g_strcmp0(text, current_text) != 0 && text_overlay_element) {
+        g_object_set(text_overlay_element, "text", text, NULL);
+        g_free(current_text);
+        current_text = text;
+    } else {
+        g_free(text);
+    }
+
+    g_mutex_unlock(&config_mutex);
+
+    g_free(video_source);
+    g_free(mount_point);
+    g_free(destination_port);
+
+    return G_SOURCE_CONTINUE;
+}
+
+// Get the current timestamp
+int get_current_time(char *timeBuff, int buffSize) {
+    if (timeBuff == NULL || buffSize <= 0) {
+        g_printerr("Invalid buffer or buffer size.\n");
+        return -1;
+    }
+
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) != 0) {
+        g_printerr("Failed to get current time\n");
+        return -1;
+    }
+
+    struct tm *tm_info = localtime(&tv.tv_sec);
+    if (tm_info == NULL) {
+        g_printerr("Failed to convert time to local time\n");
+        return -1;
+    }
+
+    if (strftime(timeBuff, buffSize, "%Y-%m-%d %H:%M:%S", tm_info) == 0) {
+        g_printerr("Failed to format time string. Buffer size might be too small\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+// RTSP client connection callback
+void rtsp_client_connected(GstRTSPServer *server, GstRTSPClient *client, gpointer user_data) {
+    char timeBuff[30];
+    if (get_current_time(timeBuff, sizeof(timeBuff)) == -1) {
+        g_printerr("Failed to retrieve timestamp\n");
+        return;
+    }
+
+    GstRTSPConnection *connection = gst_rtsp_client_get_connection(client);
+    if (!connection) {
+        g_printerr("Failed client connection\n");
+        return;
+    }
+
+    const gchar *ip_address = gst_rtsp_connection_get_ip(connection);
+    if (!ip_address) {
+        g_printerr("Failed to retrieve IP address from RTSP connection\n");
+        return;
+    }
+
+    g_message("Client connected: IP %s at %s\n", ip_address, timeBuff);
+
+    ClientConnection *conStr = create_client_connection(ip_address, timeBuff);
+    if (!conStr) {
+        return;
+    }
+
+    INSERT_DB(conStr, 1); // Insert connection into database
+    free_client_connection(conStr); // Free memory
+}
+
+// RTSP client disconnection callback
+void rtsp_client_disconnect(GstRTSPClient *client, gpointer user_data) {
+    char timeBuff[30];
+    if (get_current_time(timeBuff, sizeof(timeBuff)) == -1) {
+        g_printerr("Failed to retrieve timestamp\n");
+        return;
+    }
+
+    GstRTSPConnection *connection = gst_rtsp_client_get_connection(client);
+    if (!connection) {
+        g_printerr("Failed client connection\n");
+        return;
+    }
+
+    const gchar *ip_address = gst_rtsp_connection_get_ip(connection);
+    if (!ip_address) {
+        g_printerr("Failed to retrieve IP address from RTSP connection\n");
+        return;
+    }
+
+    g_message("Client disconnected: IP %s at %s\n", ip_address, timeBuff);
+
+    ClientConnection *conStr = create_client_connection(ip_address, timeBuff);
+    if (!conStr) {
+        return;
+    }
+
+    INSERT_DB(conStr, 0); // Insert disconnection into database
+    free_client_connection(conStr); // Free memory
+}
+
+int main(int argc, char *argv[]) {
+    GstRTSPServer *server = NULL;
+    GstRTSPMountPoints *mounts = NULL;
+    GstRTSPMediaFactory *factory = NULL;
+
+    setlocale(LC_ALL, "");
+
+    if (argc < 2) {
+        g_printerr("Usage: %s <config_file>\n", argv[0]);
+        return -1;
+    }
+
+    const char *config_file = argv[1];
+
+    gst_init(&argc, &argv);
+
+    if (access(config_file, F_OK) == -1) {
+        g_printerr("Configuration file '%s' does not exist.\n", config_file);
+        return -1;
+    }
+
+    if (lire_configuration(config_file, &current_video_source, &current_mount_point, &current_destination_port, &current_text) != 0) {
+        return -1;
+    }
+
+    signal(SIGTERM, handle_sigterm);
+    signal(SIGINT, handle_sigterm);
+
+    loop = g_main_loop_new(NULL, FALSE);
+
+    server = gst_rtsp_server_new();
+    g_object_set(server, "service", current_destination_port, NULL);
+
+    mounts = gst_rtsp_server_get_mount_points(server);
+    factory = gst_rtsp_media_factory_new();
+
+    gchar *launch_string = g_strdup_printf(
+        "( uridecodebin uri=%s ! queue ! videoconvert ! textoverlay name=text_overlay text=\"%s\" font-desc=\"Sans 40px\" shaded-background=true halignment=center valignment=center ! x264enc tune=zerolatency ! rtph264pay name=pay0 pt=96 )",
+        current_video_source, current_text);
+
+    gst_rtsp_media_factory_set_launch(factory, launch_string);
+    gst_rtsp_media_factory_set_shared(factory, FALSE);
+    g_signal_connect(factory, "media-configure", (GCallback)media_configure, NULL);
+
+    gst_rtsp_mount_points_add_factory(mounts, current_mount_point, factory);
+    g_object_unref(mounts);
+
+    gst_rtsp_server_attach(server, NULL);
+    g_signal_connect(server, "client-connected", G_CALLBACK(rtsp_client_connected), NULL);
+
+    g_main_loop_run(loop);
+
+    g_free(current_video_source);
+    g_free(current_mount_point);
+    g_free(current_destination_port);
+    g_free(current_text);
+
+    return 0;
+}
