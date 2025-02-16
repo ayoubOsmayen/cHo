@@ -1,0 +1,14 @@
+# This file provides input data for the RTSP server.
+
+# Example text content
+Welcome to the RTSP Server!
+Streaming URL: rtsp://127.0.0.1:8554
+
+# Dynamic configurations
+StreamResolution: 1920x1080
+StreamBitrate: 4000kbps
+StreamCodec: H264
+
+# User messages
+UserMessage1: Enjoy the high-quality stream!
+UserMessage2: Stay tuned for more updates.

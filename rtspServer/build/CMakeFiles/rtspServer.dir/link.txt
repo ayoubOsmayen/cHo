@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/rtspServer.dir/main.c.o CMakeFiles/rtspServer.dir/functions.c.o CMakeFiles/rtspServer.dir/config.c.o -o rtspServer   -L/usr/local/lib/x86_64-linux-gnu  -Wl,-rpath,/usr/local/lib/x86_64-linux-gnu -lgstrtspserver-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0 -lmariadbclient 

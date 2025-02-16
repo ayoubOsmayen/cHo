@@ -1,0 +1,4 @@
+rtsp://example.com/stream
+/mount_point
+8554
+Superimposed Text

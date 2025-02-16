@@ -1,0 +1,4 @@
+rtsp://admin:47290aaa@91.183.2.52:3003/Streaming/Channels/102
+http://sip1.egaletcp.net/download/99999999_20240915172905.mp4
+5344
+ADREE_TT__TESt0099-9-2024

@@ -1,0 +1,1 @@
+gcc -o db_crud  db_menu.c -I/usr/include/mariadb -L/usr/lib/x86_64-linux-gnu -lmariadbclient

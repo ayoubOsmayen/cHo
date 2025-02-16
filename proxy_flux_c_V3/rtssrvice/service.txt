@@ -1,0 +1,14 @@
+
+
+  [Unit]
+Description=RTSP Text Overlay Service
+After=network.target
+
+[Service]
+ExecStart=/path/to/run_rtsp_overlay.sh
+Restart=always
+User=your_user
+Group=your_group
+
+[Install]
+WantedBy=multi-user.target

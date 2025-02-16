@@ -1,0 +1,3 @@
+/home/ayoub/rtspServer/build/CMakeFiles/rebuild_cache.dir
+/home/ayoub/rtspServer/build/CMakeFiles/edit_cache.dir
+/home/ayoub/rtspServer/build/CMakeFiles/rtspServer.dir

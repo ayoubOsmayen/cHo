@@ -1,0 +1,61 @@
+Process ID: 4061292, Thread ID: 139883312387840
+Command: ls
+Output:
+app_test
+app_test.c
+app_test.o
+command_log.txt
+commandeoutput.txt
+excutecmd.c
+excutecommand
+excutecommandv1
+replaceoccurence.c
+savelogcommand.c
+vexcutelog
+
+Process ID: 4061292, Thread ID: 139883312387840
+Command: 
+Output:
+
+Process ID: 4061292, Thread ID: 139883312387840
+Command: dir
+Output:
+app_test    command_log.txt	excutecommand	    savelogcommand.c
+app_test.c  commandeoutput.txt	excutecommandv1     vexcutelog
+app_test.o  excutecmd.c		replaceoccurence.c
+
+Process ID: 4061292, Thread ID: 139883312387840
+Command: echo  "hello  wordl"  
+Output:
+hello  wordl
+
+Process ID: 4061292, Thread ID: 139883312387840
+Command: touch  app.sh
+Output:
+
+Process ID: 4061292, Thread ID: 139883312387840
+Command: ip a 
+Output:
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: ens3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether fa:16:3e:a6:70:bf brd ff:ff:ff:ff:ff:ff
+    altname enp0s3
+    inet 152.228.142.4/32 brd 152.228.142.4 scope global dynamic ens3
+       valid_lft 53856sec preferred_lft 53856sec
+    inet6 2001:41d0:404:200::72be/56 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fea6:70bf/64 scope link 
+       valid_lft forever preferred_lft forever
+3: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 500
+    link/none 
+    inet 10.8.0.1 peer 10.8.0.2/32 scope global tun0
+       valid_lft forever preferred_lft fo
+Process ID: 4061292, Thread ID: 139883312387840
+Command: ippwfd
+Output:
+

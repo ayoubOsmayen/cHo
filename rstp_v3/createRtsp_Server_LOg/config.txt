@@ -1,0 +1,4 @@
+rtsp://admin:47290aaa@109.132.176.42:3003/Streaming/Channels/101
+/video5267
+5267
+rtsp://admin:47290aaa@109.132.176.42:3003/Streaming/Channels/101 rtsp://152.228.142.4:5327/video5327 TELEPOLICE rtsp://152.228.142.4:5327/video5327 VISION ZP 5267 version22

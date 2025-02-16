@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.10)
+project(RTSP_Proxy)
+
+# Find GStreamer
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-rtsp-server-1.0)
+
+# Set the executable
+add_executable(gstream_project main.c)
+
+# Include the GStreamer headers
+target_include_directories(gstream_project PRIVATE ${GST_INCLUDE_DIRS})
+
+# Link the necessary GStreamer libraries
+target_link_libraries(gstream_project ${GST_LIBRARIES})
+
+# Add the necessary compiler flags
+target_compile_options(gstream_project PRIVATE ${GST_CFLAGS_OTHER})

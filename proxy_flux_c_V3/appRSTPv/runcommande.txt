@@ -1,0 +1,10 @@
+gcc -o rtsp_server rtsp_server.c `pkg-config --cflags --libs gstreamer-1.0 gstreamer-rtsp-server-1.0`
+
+
+gcc -o rtsp_server main.c functions.c `pkg-config --cflags --libs gstreamer-1.0 gstreamer-rtsp-server-1.0`
+
+
+gcc main.c functions.c -o mainal-1 `pkg-config --cflags --libs gstreamer-1.0` >> runner.txt
+
+
+gcc -o rtsp_server app.c utils.c `pkg-config --cflags --libs gstreamer-1.0 gstreamer-rtsp-server-1.0`

@@ -1,0 +1,2 @@
+/home/ayoub/Rstp_sql_v2/build/CMakeFiles/rebuild_cache.dir
+/home/ayoub/Rstp_sql_v2/build/CMakeFiles/edit_cache.dir

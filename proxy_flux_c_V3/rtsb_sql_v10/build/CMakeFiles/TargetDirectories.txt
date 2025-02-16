@@ -1,0 +1,3 @@
+/home/ayoub/rtsb_sql_v10/build/CMakeFiles/rebuild_cache.dir
+/home/ayoub/rtsb_sql_v10/build/CMakeFiles/edit_cache.dir
+/home/ayoub/rtsb_sql_v10/build/CMakeFiles/rtsp_server_dynamic.dir

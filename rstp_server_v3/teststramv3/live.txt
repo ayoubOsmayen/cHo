@@ -1,0 +1,3 @@
+rtsp://admin:47290aaa@109.132.176.42:3003/Streaming/Channels/101
+Live Surveillance
+8554

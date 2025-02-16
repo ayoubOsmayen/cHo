@@ -1,0 +1,4 @@
+rtsp://192.168.1.100:8554/test
+/home/user/video.mp4
+8554
+Overlay initial

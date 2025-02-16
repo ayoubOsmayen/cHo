@@ -1,0 +1,11 @@
+http://voidev.alip.ovh/download/mire.mp4
+/video5267
+5267
+TELEPOLICE VISION ZP 5267
+
+
+
+rtsp://admin:47290aaa@109.132.176.42:3003/Streaming/Channels/101
+/video5267
+5267
+TELEPOLICE VISION ZP 5267

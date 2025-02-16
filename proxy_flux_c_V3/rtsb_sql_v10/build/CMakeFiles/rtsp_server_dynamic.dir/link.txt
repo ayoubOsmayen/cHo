@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/rtsp_server_dynamic.dir/app.c.o -o rtsp_server_dynamic  -lgstrtspserver-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0 -lpthread 
